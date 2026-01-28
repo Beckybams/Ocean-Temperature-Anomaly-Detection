@@ -1,0 +1,68 @@
+# Ocean Temperature Anomaly Detection using Synthetic Data
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.ensemble import IsolationForest
+from scipy.stats import zscore
+
+# -----------------------------
+# 1. Generate Synthetic Data
+# -----------------------------
+np.random.seed(42)
+
+dates = pd.date_range(start="2023-01-01", periods=365)
+temperature = np.random.normal(loc=26, scale=1.2, size=365)
+
+# Inject anomalies
+anomaly_indices = np.random.choice(range(365), size=15, replace=False)
+temperature[anomaly_indices] += np.random.choice([5, -5], size=15)
+
+data = pd.DataFrame({
+    "Date": dates,
+    "Temperature_C": temperature
+})
+
+# -----------------------------
+# 2. Z-Score Anomaly Detection
+# -----------------------------
+data["Z_Score"] = zscore(data["Temperature_C"])
+data["Z_Anomaly"] = data["Z_Score"].abs() > 2.5
+
+# -----------------------------
+# 3. Isolation Forest Detection
+# -----------------------------
+iso_forest = IsolationForest(
+    contamination=0.04,
+    random_state=42
+)
+
+data["IF_Anomaly"] = iso_forest.fit_predict(
+    data[["Temperature_C"]]
+)
+
+data["IF_Anomaly"] = data["IF_Anomaly"] == -1
+
+# -----------------------------
+# 4. Visualization
+# -----------------------------
+plt.figure(figsize=(12, 6))
+plt.plot(data["Date"], data["Temperature_C"], label="Ocean Temperature")
+plt.scatter(
+    data[data["IF_Anomaly"]]["Date"],
+    data[data["IF_Anomaly"]]["Temperature_C"],
+    color="red",
+    label="Detected Anomaly"
+)
+plt.xlabel("Date")
+plt.ylabel("Temperature (°C)")
+plt.title("Ocean Temperature Anomaly Detection")
+plt.legend()
+plt.show()
+
+# -----------------------------
+# 5. Save Dataset
+# -----------------------------
+data.to_csv("ocean_temperature_anomalies.csv", index=False)
+
+print("Anomaly detection complete. Dataset saved.")
